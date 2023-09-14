@@ -1,4 +1,5 @@
 %include "constants.asm"
+%include "macro.asm"
 
         extern htons
         extern str_find_char
@@ -16,11 +17,6 @@
         mov rdx, %1_len
         jmp exit_error_msg
 %%ok:
-%endmacro
-
-%macro DEFINE_STRING 2
-%1 db %2
-%1_len equ $-%1
 %endmacro
 
 %macro SERVER_SEND 2
@@ -164,7 +160,7 @@ server_start:
 
         mov rax, SYSCALL_LISTEN
         mov rdi, r12
-        mov rsi, 5              ; queued connections
+        mov rsi, 4096           ; queued connections
         syscall
 
         SYSCALL_ERROR_MAYBE listen_err_msg
