@@ -146,7 +146,7 @@ server_start:
         mov qword [rsp], 0
         mov qword [rsp+8], 0
         mov byte [rsp], AF_INET
-        mov rax, 8080
+        mov rdi, 8080
         call htons
         mov word [rsp+2], ax
 

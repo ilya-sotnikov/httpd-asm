@@ -25,6 +25,28 @@ str_find_char:
         mov rax, rcx
         ret
 
+; arg1 const char *s1
+; arg2 const char *s2
+; arg3 size_t n
+; ret  1 if s1 == s2, 0 if (s1 != s2) or (n == 0)
+global str_is_equal
+str_is_equal:
+        cmp rdx, 0
+        jz .not_equal
+        xor ecx, ecx
+.loop:
+        mov r8, [rsi + rcx]
+        cmp byte [rdi + rcx], r8b
+        jne .not_equal
+        dec rdx
+        jnz .loop
+.equal:
+        mov rax, 1
+        ret
+.not_equal:
+        xor eax, eax
+        ret
+
 ; arg1 void *dst
 ; arg2 const void *src
 ; arg3 size_t n
@@ -45,5 +67,6 @@ mem_copy:
 ; ret  uint16_t network_short
 global htons
 htons:
+        mov rax, rdi
         ror ax, 8
         ret
