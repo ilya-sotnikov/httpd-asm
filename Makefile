@@ -19,7 +19,7 @@ TEST_OBJ += $(filter-out $(TARGET_DIR)/main.o, $(OBJ))
 AS_FLAGS := -w+all -w+error -f elf64 -I $(SRC_DIR)
 
 debug: AS_FLAGS += -g
-release:
+release: LD_FLAGS += -s
 test: AS_FLAGS += -g
 
 all: release
@@ -28,7 +28,7 @@ release: $(TARGET_DIR)/$(TARGET_NAME)
 test: $(TARGET_DIR)/$(TEST_NAME)
 
 $(TARGET_DIR)/$(TARGET_NAME): $(OBJ)
-	$(LD) -o $@ $^
+	$(LD) $(LD_FLAGS) -o $@ $^
 
 $(TARGET_DIR)/%.o: $(SRC_DIR)/%.asm
 	mkdir -p $(TARGET_DIR)
@@ -39,7 +39,7 @@ $(TARGET_DIR)/%.o: $(TESTS_DIR)/%.asm
 	$(AS) $(AS_FLAGS) -o $@ $<
 
 $(TARGET_DIR)/$(TEST_NAME): $(TEST_OBJ)
-	$(LD) -o $@ $^
+	$(LD) $(LD_FLAGS) -o $@ $^
 	./$@
 
 clean:
