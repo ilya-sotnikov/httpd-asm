@@ -1,5 +1,6 @@
 %include "constants.asm"
 %include "macro.asm"
+%include "config.asm"
 
         extern htons
         extern str_find_char
@@ -164,7 +165,7 @@ server_start:
 
         mov rax, SYSCALL_LISTEN
         mov rdi, r12
-        mov rsi, 4096           ; queued connections
+        mov rsi, LISTEN_BACKLOG ; queued connections
         syscall
 
         SYSCALL_ERROR_MAYBE listen_err_msg
@@ -184,7 +185,7 @@ server_loop:
         push r13
         push r14
         push r15
-        sub rsp, 4096 * 2
+        sub rsp, MAX_REQUEST_LEN + MAX_FILE_PATH_LEN
         mov r12, rdi
 .loop:
         mov rax, SYSCALL_ACCEPT
@@ -200,7 +201,7 @@ server_loop:
         mov rax, SYSCALL_READ
         mov rdi, r13
         mov rsi, rsp
-        mov rdx, 4096
+        mov rdx, MAX_REQUEST_LEN
         syscall
 
         SYSCALL_ERROR_MAYBE socket_read_err_msg
@@ -215,15 +216,15 @@ server_loop:
 
         mov rdi, rsp
         mov rsi, r15
-        lea rdx, [rsp + 4096]
+        lea rdx, [rsp + MAX_REQUEST_LEN]
         call request_file_get
         cmp rax, 0
         jz .send_404
 
-        mov byte [rsp + 4096 + rax], 0 ; null-termination for syscall
+        mov byte [rsp + MAX_REQUEST_LEN + rax], 0 ; null-termination for syscall
 
         mov rax, SYSCALL_OPEN
-        lea rdi, [rsp + 4096]
+        lea rdi, [rsp + MAX_REQUEST_LEN]
         mov rsi, O_RDONLY
         syscall
 
@@ -245,7 +246,7 @@ server_loop:
         mov rdi, r13
         mov rsi, r14
         xor edx, edx
-        mov r10, 4096
+        mov r10, MAX_SENDFILE_LEN
         syscall
         cmp rax, 0
         jnz .send_file
@@ -265,7 +266,7 @@ server_loop:
 
         jmp .loop
 
-        add rsp, 4096 * 2
+        add rsp, MAX_REQUEST_LEN + MAX_FILE_PATH_LEN
         pop r15
         pop r14
         pop r13

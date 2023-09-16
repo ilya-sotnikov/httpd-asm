@@ -1,0 +1,4 @@
+LISTEN_BACKLOG         equ 4096
+MAX_REQUEST_LEN        equ 4096
+MAX_FILE_PATH_LEN      equ 4096
+MAX_SENDFILE_LEN       equ 4096
