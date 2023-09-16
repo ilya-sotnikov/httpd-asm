@@ -50,7 +50,29 @@ request_is_get:
         cmp rsi, 4
         jl .end_false
         cmp dword [rdi], "GET "
+        jne .end_false
+
+        push rdi
+        push rsi
+
+        mov rdx, "?"
+        call str_find_char
+
+        pop rsi
+        pop rdi
+
+        cmp rax, -1
         je .end_true
+
+        push rax
+
+        mov rdx, `\r`
+        call str_find_char
+
+        pop r8
+        cmp r8, rax
+        jg .end_true
+
 .end_false:
         xor eax, eax
         ret
@@ -212,7 +234,7 @@ server_loop:
         mov rsi, rax
         call request_is_get
         cmp rax, 0
-        jz .socket_close
+        jz .send_501
 
         mov rdi, rsp
         mov rsi, r15
@@ -231,12 +253,7 @@ server_loop:
         mov r14, rax
 
         cmp rax, 0
-        jge .file_found
-
-.send_404:
-        SERVER_SEND r13, HTTP404
-        SYSCALL_ERROR_MAYBE socket_write_err_msg
-        jmp .socket_close
+        jl .send_404
 
 .file_found:
         SERVER_SEND r13, HTTP200
@@ -273,6 +290,15 @@ server_loop:
         pop r12
         ret
 
+.send_404:
+        SERVER_SEND r13, HTTP404
+        SYSCALL_ERROR_MAYBE socket_write_err_msg
+        jmp .socket_close
+.send_501:
+        SERVER_SEND r13, HTTP501
+        SYSCALL_ERROR_MAYBE socket_write_err_msg
+        jmp .socket_close
+
         section .data
 
 DEFINE_STRING socket_err_msg, `socket create failed\n`
@@ -290,3 +316,4 @@ DEFINE_STRING index_path, "index.html"
 
 DEFINE_STRING HTTP200, `HTTP/1.1 200 0K\r\n\r\n`
 DEFINE_STRING HTTP404, `HTTP/1.1 404 Not Found\r\n\r\n`
+DEFINE_STRING HTTP501, `HTTP/1.1 501 Not Implemented\r\n\r\n`
