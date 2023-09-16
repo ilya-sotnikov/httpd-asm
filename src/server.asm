@@ -112,12 +112,16 @@ request_file_get:
         xor eax, eax
         ret
 
+; arg1 uint16_t port
 global server_start
 server_start:
         push rbp
         mov rbp, rsp
         push r12
+        push r13
         sub rsp, 16
+
+        mov r13, rdi
 
         mov rax, SYSCALL_SOCKET
         mov rdi, AF_INET
@@ -146,7 +150,7 @@ server_start:
         mov qword [rsp], 0
         mov qword [rsp+8], 0
         mov byte [rsp], AF_INET
-        mov rdi, 8080
+        mov rdi, r13
         call htons
         mov word [rsp+2], ax
 
@@ -168,6 +172,7 @@ server_start:
         mov rax, r12            ; server fd
 
         add rsp, 16
+        pop r13
         pop r12
         mov rsp, rbp
         pop rbp

@@ -3,6 +3,19 @@
         section .text
 
 ; arg1 const char *s
+; ret  size_t n
+; for C API
+global strlen
+strlen:
+        xor eax, eax
+        mov rcx, -1
+        repne scasb
+        not rcx
+        mov rax, rcx
+        dec rax
+        ret
+
+; arg1 const char *s
 ; arg2 size_t len
 ; arg3 char c
 ; ret  int char_pos (-1 if not found or string empty)
@@ -61,6 +74,42 @@ mem_copy:
         inc rcx
         dec rdx
         jnz .loop
+        ret
+
+; arg1 const char *str
+; arg2 size_t str_len
+; ret1 uint64_t num
+; ret2 bool success
+global str_to_unsigned
+str_to_unsigned:
+        xor eax, eax
+        xor edx, edx
+        xor r8, r8
+        mov rcx, 1
+        mov r9, 10
+.loop:
+        mov r8b, byte [rdi]
+
+        cmp r8, "0"
+        jl .fail
+        cmp r8, "9"
+        jg .fail
+
+        sub r8, "0"
+
+        mul r9d
+        add rax, r8
+
+        inc rcx
+        inc rdi
+        dec rsi
+        jnz .loop
+
+.success:
+        mov rdx, 1
+        ret
+.fail:
+        xor edx, edx
         ret
 
 ; arg1 uint16_t host_short

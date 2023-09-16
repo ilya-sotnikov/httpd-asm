@@ -40,27 +40,14 @@
         %2, %1
 %endmacro
 
-%macro PRINT 1
-
-        [section .data]
-%%msg db %1
-%%msg_len equ $ - %%msg
-        __?SECT?__
-
-        mov rax, SYSCALL_WRITE
-        mov rdi, STDOUT
-        mov rsi, %%msg
-        mov rdx, %%msg_len
-        syscall
-
-%endmacro
-
         section .text
         global _start
         extern str_find_char
         extern htons
         extern str_is_equal
         extern mem_copy
+        extern str_to_unsigned
+        extern strlen
 
 log_error_die:
         mov rax, SYSCALL_WRITE
@@ -133,6 +120,27 @@ _start:
         mov rdi, 0x0000
         CALL_DO htons, {ASSERT_EQUAL rax, 0x0000}
 
+        mov rdi, num_str
+        mov rsi, num_str_len
+        CALL_DO str_to_unsigned, {ASSERT_EQUAL rdx, 1}
+        ASSERT_EQUAL rax, 1337
+
+        mov rdi, index_str
+        mov rsi, index_str_len
+        CALL_DO str_to_unsigned, {ASSERT_EQUAL rdx, 0}
+
+        mov rdi, empty_str
+        mov rsi, empty_str_len
+        CALL_DO str_to_unsigned, {ASSERT_EQUAL rdx, 0}
+
+        mov rdi, null_term_str
+        CALL_DO strlen, {ASSERT_EQUAL rax, null_term_str_len}
+
+        push 0
+        mov rdi, rsp
+        CALL_DO strlen, {ASSERT_EQUAL rax, 0}
+        pop rax
+
         PRINT `success\n`
 
         mov rax, SYSCALL_EXIT
@@ -144,8 +152,12 @@ _start:
 DEFINE_STRING empty_str, ""
 DEFINE_STRING index_str, "testing string /index.html"
 DEFINE_STRING test_str, "test"
+DEFINE_STRING num_str, "1337"
 
 long_str times 1024 * 8 db "x"
 db "?"
 times 1024 * 8 db "x"
 long_str_len equ $ - long_str
+
+null_term_str db "testing strlen", 0
+null_term_str_len equ $ - null_term_str - 1
