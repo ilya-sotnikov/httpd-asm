@@ -11,7 +11,7 @@
         __?SECT?__
 
         mov rdi, %%fail_str
-        mov rsi, %%fail_str_len
+        mov esi, %%fail_str_len
         call log_error_die
 %%ok:
 %endmacro
@@ -19,8 +19,8 @@
 %macro ASSERT_STR_EQUAL 2-*
         mov rdi, %1
         mov rsi, %2
-        mov rdx, %2_len
-        call str_is_equal
+        mov edx, %2_len
+        call mem_is_equal
         cmp rax, 1
         je %%ok
 
@@ -30,7 +30,7 @@
         __?SECT?__
 
         mov rdi, %%fail_str
-        mov rsi, %%fail_str_len
+        mov esi, %%fail_str_len
         call log_error_die
 %%ok:
 %endmacro
@@ -42,22 +42,23 @@
 
         section .text
         global _start
-        extern str_find_char
+        extern mem_find_byte
+        extern mem_find_byte_or
         extern htons
-        extern str_is_equal
+        extern mem_is_equal
         extern mem_copy
-        extern str_to_unsigned
+        extern str_to_u32
         extern strlen
 
 log_error_die:
-        mov rax, SYSCALL_WRITE
-        mov rdx, rsi
+        mov eax, SYSCALL_WRITE
+        mov edx, esi
         mov rsi, rdi
-        mov rdi, STDERR
+        mov edi, STDERR
         syscall
 
-        mov rax, SYSCALL_EXIT
-        mov rdi, 1
+        mov eax, SYSCALL_EXIT
+        mov edi, 1
         syscall
 
 _start:
@@ -65,93 +66,113 @@ _start:
         PRINT `testing starts...\n`
         PRINT `--------------------------------------\n`
 
-        mov rdi, index_str
-        mov rsi, index_str_len
-        mov rdx, "/"
-        CALL_DO str_find_char, {ASSERT_EQUAL rax, 15}
+        mov rdi, test_str
+        mov esi, test_str_len
+        mov edx, "/"
+        CALL_DO mem_find_byte, {ASSERT_EQUAL eax, 15}
 
-        mov rdi, index_str
-        mov rsi, index_str_len
-        mov rdx, "?"
-        CALL_DO str_find_char, {ASSERT_EQUAL rax, -1}
+        mov rdi, test_str
+        mov esi, test_str_len
+        mov edx, "*"
+        CALL_DO mem_find_byte, {ASSERT_EQUAL eax, -1}
 
         mov rdi, empty_str
-        mov rsi, empty_str_len
-        mov rdx, " "
-        CALL_DO str_find_char, {ASSERT_EQUAL rax, -1}
+        mov esi, empty_str_len
+        mov edx, " "
+        CALL_DO mem_find_byte, {ASSERT_EQUAL eax, -1}
 
         mov rdi, long_str
-        mov rsi, long_str_len
-        mov rdx, "?"
-        CALL_DO str_find_char, {ASSERT_EQUAL rax, 1024 * 8}
+        mov esi, long_str_len
+        mov edx, "?"
+        CALL_DO mem_find_byte, {ASSERT_EQUAL eax, 1024 * 8}
 
-        mov rdi, index_str
-        mov rsi, test_str
-        mov rdx, test_str_len
-        CALL_DO str_is_equal, {ASSERT_EQUAL rax, 1}
+        mov rdi, test_str
+        mov esi, test_str_len
+        mov edx, "/"
+        mov ecx, "?"
+        CALL_DO mem_find_byte_or, {ASSERT_EQUAL eax, 15}
 
-        mov rdi, index_str
+        mov rdi, index_str_space
+        mov esi, index_str_space_len
+        mov edx, " "
+        mov ecx, "?"
+        CALL_DO mem_find_byte_or, {ASSERT_EQUAL eax, 10}
+
+        mov rdi, index_str_quest
+        mov esi, index_str_quest_len
+        mov edx, " "
+        mov ecx, "?"
+        CALL_DO mem_find_byte_or, {ASSERT_EQUAL eax, 10}
+
+        mov rdi, test_str
+        mov rsi, short_str
+        mov edx, short_str_len
+        CALL_DO mem_is_equal, {ASSERT_EQUAL eax, 1}
+
+        mov rdi, test_str
         mov rsi, long_str
-        mov rdx, index_str_len
-        CALL_DO str_is_equal, {ASSERT_EQUAL rax, 0}
+        mov edx, test_str_len
+        CALL_DO mem_is_equal, {ASSERT_EQUAL eax, 0}
 
-        mov rdi, index_str
+        mov rdi, test_str
         mov rsi, empty_str
-        mov rdx, empty_str_len
-        CALL_DO str_is_equal, {ASSERT_EQUAL rax, 0}
+        mov edx, empty_str_len
+        CALL_DO mem_is_equal, {ASSERT_EQUAL eax, 0}
 
         sub rsp, 1024*16 + 1
 
         mov rdi, rsp
-        mov rsi, index_str
-        mov rdx, index_str_len
-        CALL_DO mem_copy, {ASSERT_EQUAL rax, index_str_len}
-        ASSERT_STR_EQUAL rsp, index_str
+        mov rsi, test_str
+        mov edx, test_str_len
+        CALL_DO mem_copy, {ASSERT_EQUAL eax, test_str_len}
+        ASSERT_STR_EQUAL rsp, test_str
 
         mov rdi, rsp
         mov rsi, long_str
-        mov rdx, long_str_len
-        CALL_DO mem_copy, {ASSERT_EQUAL rax, long_str_len}
+        mov edx, long_str_len
+        CALL_DO mem_copy, {ASSERT_EQUAL eax, long_str_len}
 
         add rsp, 1024*16 + 1
 
-        mov rdi, 0x1234
-        CALL_DO htons, {ASSERT_EQUAL rax, 0x3412}
-        mov rdi, 0x0000
-        CALL_DO htons, {ASSERT_EQUAL rax, 0x0000}
+        mov di, 0x1234
+        CALL_DO htons, {ASSERT_EQUAL ax, 0x3412}
+        mov di, 0x0000
+        CALL_DO htons, {ASSERT_EQUAL ax, 0x0000}
 
         mov rdi, num_str
-        mov rsi, num_str_len
-        CALL_DO str_to_unsigned, {ASSERT_EQUAL rdx, 1}
-        ASSERT_EQUAL rax, 1337
+        mov esi, num_str_len
+        CALL_DO str_to_u32, {ASSERT_EQUAL edx, 1}
+        ASSERT_EQUAL eax, 1337
 
-        mov rdi, index_str
-        mov rsi, index_str_len
-        CALL_DO str_to_unsigned, {ASSERT_EQUAL rdx, 0}
+        mov rdi, test_str
+        mov esi, test_str_len
+        CALL_DO str_to_u32, {ASSERT_EQUAL edx, 0}
 
         mov rdi, empty_str
-        mov rsi, empty_str_len
-        CALL_DO str_to_unsigned, {ASSERT_EQUAL rdx, 0}
+        mov esi, empty_str_len
+        CALL_DO str_to_u32, {ASSERT_EQUAL edx, 0}
 
         mov rdi, null_term_str
-        CALL_DO strlen, {ASSERT_EQUAL rax, null_term_str_len}
+        CALL_DO strlen, {ASSERT_EQUAL eax, null_term_str_len}
 
         push 0
         mov rdi, rsp
-        CALL_DO strlen, {ASSERT_EQUAL rax, 0}
+        CALL_DO strlen, {ASSERT_EQUAL eax, 0}
         pop rax
 
         PRINT `success\n`
 
-        mov rax, SYSCALL_EXIT
+        mov eax, SYSCALL_EXIT
         xor edi, edi
         syscall
 
         section .data
 
 DEFINE_STRING empty_str, ""
-DEFINE_STRING index_str, "testing string /index.html"
-DEFINE_STRING test_str, "test"
+DEFINE_STRING test_str, "testing string /index.html?test=5"
+DEFINE_STRING index_str_quest, "index.html?test=5"
+DEFINE_STRING index_str_space, "index.html $(*!@)$7187"
+DEFINE_STRING short_str, "test"
 DEFINE_STRING num_str, "1337"
 
 long_str times 1024 * 8 db "x"
