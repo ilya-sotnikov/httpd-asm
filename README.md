@@ -1,2 +1,34 @@
 # httpd-asm
-Minimal web server (HTTP 1.1 subset) written in x64 assembly for Linux
+
+Minimal web server (HTTP 1.0 subset) written in x64 assembly for Linux.
+
+Probably full of CVEs. Don't use it.
+
+## Features
+
+- serve static files
+- 200, 404, 501
+- tweak parameters in src/config.asm
+- static and small executable
+
+## Build
+
+Requirements:
+
+- Linux x64
+- nasm
+- GNU Make
+- GNU Binutils
+
+To build just run `make`.
+
+## Usage
+
+```
+git clone https://github.com/ilya-sotnikov/httpd-asm
+cd httpd-asm
+make
+cp target/httpd-asm ~/.local/bin
+cd <HTML_DIRECTORY>
+httpd-asm <PORT>
+```
