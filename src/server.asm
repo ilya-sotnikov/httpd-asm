@@ -3,28 +3,28 @@
 %include "config.asm"
 
         extern htons
-        extern str_find_char
+        extern mem_find_byte_or
         extern mem_copy
 
         section .text
 
 %macro SYSCALL_ERROR_MAYBE 1
-        cmp rax, 0
+        test eax, eax
         jge %%ok
 
-        mov rdi, rax
-        neg rdi            ; 0 - errno in rax after syscall
+        mov edi, eax
+        neg edi            ; 0 - errno in rax after syscall
         mov rsi, %1
-        mov rdx, %1_len
+        mov edx, %1_len
         jmp exit_error_msg
 %%ok:
 %endmacro
 
 %macro SERVER_SEND 2
-        mov rax, SYSCALL_WRITE
-        mov rdi, %1
+        mov eax, SYSCALL_WRITE
+        mov edi, %1
         mov rsi, %2
-        mov rdx, %2_len
+        mov edx, %2_len
         syscall
 %endmacro
 
@@ -32,140 +32,79 @@
 ; arg2 const char *msg
 ; arg3 size_t msg_len
 exit_error_msg:
-        mov r10, rdi ; error code
+        mov r10d, edi ; error code
 
-        mov rax, SYSCALL_WRITE
-        mov rdi, STDERR
+        mov eax, SYSCALL_WRITE
+        mov edi, STDERR
         syscall
 
-        mov rax, SYSCALL_EXIT
-        mov rdi, r10
+        mov eax, SYSCALL_EXIT
+        mov edi, r10d
         syscall
 
-; arg1 const char *request
-; arg2 size_t request_len
-; ret  bool is_get
-request_is_get:
-.loop:
-        cmp rsi, 4
-        jl .end_false
-        cmp dword [rdi], "GET "
-        jne .end_false
-
-        push rdi
-        push rsi
-
-        mov rdx, "?"
-        call str_find_char
-
-        pop rsi
-        pop rdi
-
-        cmp rax, -1
-        je .end_true
-
-        push rax
-
-        mov rdx, `\r`
-        call str_find_char
-
-        pop r8
-        cmp r8, rax
-        jg .end_true
-
-.end_false:
-        xor eax, eax
-        ret
-.end_true:
-        mov rax, 1
-        ret
-
-; arg1 const char *request
-; arg2 size_t request_len
-; arg3 char *file_path (should be 4096 bytes, max on Linux)
-; ret  size_t file_path_len
+; arg1 uint8_t *request (len >= 4096+5 for max file_path len for Linux)
+; ret  uint32_t file_path_start_pos
+; edits the request buffer for perfomance
+; either null-terminates file_path in a request or copies "index.html"
+; at the beginning of request buffer
 request_file_get:
-        cmp rsi, 5
-        jl .end_zero
-
         push r12
-        push r13
-        push r14
-        push r15
+
+        add rdi, 5               ; start_pos
 
         mov r12, rdi
-        mov r13, rsi
-        mov r14, rdx
-
-        mov rdx, "/"
-        call str_find_char
-
-        inc rax                        ; skip /
-        mov r15, rax                   ; start_pos
 
         xor eax, eax
-        cmp byte [r12 + r15], "."
-        je .pop_ret
+        cmp byte [r12], "."
+        je .end
 
-        lea rdi, [r12 + r15]
-        sub r13, r15
-        mov rsi, r13
-        mov rdx, " "
-        call str_find_char
+        mov edx, " "
+        mov ecx, "?"
+        call mem_find_byte_or
 
-        cmp rax, 0
-        jg .file_not_empty
+        test eax, eax
+        jg .null_terminate
 .file_empty:
+        mov rdi, r12
         mov rsi, index_path
-        mov rdx, index_path_len
-        jmp .call_mem_copy
-.file_not_empty:
-        lea rsi, [r12 + r15]
-        mov rdx, rax
-.call_mem_copy:
-        mov rdi, r14
+        mov edx, index_path_len
         call mem_copy
-.pop_ret:
-        pop r15
-        pop r14
-        pop r13
+.null_terminate:
+        mov byte [r12 + rax], 0  ; null-termination
+        mov eax, 5               ; start_pos
+.end:
         pop r12
-        ret
-.end_zero:
-        xor eax, eax
         ret
 
 ; arg1 uint16_t port
 global server_start
 server_start:
-        push rbp
-        mov rbp, rsp
         push r12
         push r13
         sub rsp, 16
 
-        mov r13, rdi
+        movzx r13d, di
 
-        mov rax, SYSCALL_SOCKET
-        mov rdi, AF_INET
-        mov rsi, SOCK_STREAM
+        mov eax, SYSCALL_SOCKET
+        mov edi, AF_INET
+        mov esi, SOCK_STREAM
         xor edx, edx
         syscall
 
         SYSCALL_ERROR_MAYBE socket_err_msg
 
-        mov r12, rax
+        mov r12d, eax
 
         mov qword [rsp], 0
         mov qword [rsp+8], 0
 
-        mov rax, SYSCALL_SETSOCKOPT
-        mov rdi, r12
-        mov rsi, SOL_SOCKET
-        mov rdx, SO_REUSEADDR
+        mov eax, SYSCALL_SETSOCKOPT
+        mov edi, r12d
+        mov esi, SOL_SOCKET
+        mov edx, SO_REUSEADDR
         mov dword [rsp], 1
         mov r10, rsp
-        mov r8, 4
+        mov r8d, 4
         syscall
 
         SYSCALL_ERROR_MAYBE setsockopt_err_msg
@@ -173,117 +112,110 @@ server_start:
         mov qword [rsp], 0
         mov qword [rsp+8], 0
         mov byte [rsp], AF_INET
-        mov rdi, r13
+        mov edi, r13d
         call htons
         mov word [rsp+2], ax
 
-        mov rax, SYSCALL_BIND
-        mov rdi, r12
+        mov eax, SYSCALL_BIND
+        mov edi, r12d
         mov rsi, rsp
-        mov rdx, 16
+        mov edx, 16
         syscall
 
         SYSCALL_ERROR_MAYBE bind_err_msg
 
-        mov rax, SYSCALL_LISTEN
-        mov rdi, r12
-        mov rsi, LISTEN_BACKLOG ; queued connections
+        mov eax, SYSCALL_LISTEN
+        mov edi, r12d
+        mov esi, LISTEN_BACKLOG  ; queued connections
         syscall
 
         SYSCALL_ERROR_MAYBE listen_err_msg
 
-        mov rax, r12            ; server fd
+        mov eax, r12d            ; server fd
 
         add rsp, 16
         pop r13
         pop r12
-        mov rsp, rbp
-        pop rbp
         ret
 
+; arg1 uint32_t fd
 global server_loop
 server_loop:
         push r12
         push r13
         push r14
         push r15
-        sub rsp, MAX_REQUEST_LEN + MAX_FILE_PATH_LEN
-        mov r12, rdi
+        sub rsp, MAX_REQUEST_LEN
+        mov r12d, edi
 .loop:
-        mov rax, SYSCALL_ACCEPT
-        mov rdi, r12
+        mov eax, SYSCALL_ACCEPT
+        mov edi, r12d
         xor esi, esi
         xor edx, edx
         syscall
 
         SYSCALL_ERROR_MAYBE accept_err_msg
 
-        mov r13, rax
+        mov r13d, eax
 
-        mov rax, SYSCALL_READ
-        mov rdi, r13
+        mov eax, SYSCALL_READ
+        mov edi, r13d
         mov rsi, rsp
-        mov rdx, MAX_REQUEST_LEN
+        mov edx, MAX_REQUEST_LEN
         syscall
 
         SYSCALL_ERROR_MAYBE socket_read_err_msg
 
-        mov r15, rax
+        mov r15d, eax
+        cmp r15d, 5
+        jl .send_501
+
+        cmp dword [rsp], "GET "
+        jne .send_501
 
         mov rdi, rsp
-        mov rsi, rax
-        call request_is_get
-        cmp rax, 0
-        jz .send_501
-
-        mov rdi, rsp
-        mov rsi, r15
-        lea rdx, [rsp + MAX_REQUEST_LEN]
         call request_file_get
-        cmp rax, 0
-        jz .send_404
 
-        mov byte [rsp + MAX_REQUEST_LEN + rax], 0 ; null-termination for syscall
-
-        mov rax, SYSCALL_OPEN
-        lea rdi, [rsp + MAX_REQUEST_LEN]
-        mov rsi, O_RDONLY
+        mov rdi, rsp
+        add rdi, rax            ; correct start_pos of file_path
+        mov eax, SYSCALL_OPEN
+        mov esi, O_RDONLY
         syscall
 
-        mov r14, rax
+        mov r14d, eax
 
-        cmp rax, 0
+        test eax, eax
         jl .send_404
 
 .file_found:
-        SERVER_SEND r13, HTTP200
+        SERVER_SEND r13d, HTTP200
 
-.send_file:
-        mov rax, SYSCALL_SENDFILE
-        mov rdi, r13
-        mov rsi, r14
+        mov edi, r13d
+        mov esi, r14d
         xor edx, edx
-        mov r10, MAX_SENDFILE_LEN
+        mov r10d, MAX_SENDFILE_LEN
+.send_file_loop:
+        mov eax, SYSCALL_SENDFILE
         syscall
-        cmp rax, 0
-        jnz .send_file
+        test eax, eax
+        jnz .send_file_loop
 
-        mov rax, SYSCALL_CLOSE
-        mov rdi, r14
+        mov eax, SYSCALL_CLOSE
+        mov edi, r14d
         syscall
 
         SYSCALL_ERROR_MAYBE file_close_err_msg
 
 .socket_close:
-        mov rax, SYSCALL_CLOSE
-        mov rdi, r13
+        mov eax, SYSCALL_CLOSE
+        mov edi, r13d
         syscall
 
         SYSCALL_ERROR_MAYBE socket_close_err_msg
 
         jmp .loop
 
-        add rsp, MAX_REQUEST_LEN + MAX_FILE_PATH_LEN
+        add rsp, MAX_REQUEST_LEN
         pop r15
         pop r14
         pop r13
@@ -291,11 +223,11 @@ server_loop:
         ret
 
 .send_404:
-        SERVER_SEND r13, HTTP404
+        SERVER_SEND r13d, HTTP404
         SYSCALL_ERROR_MAYBE socket_write_err_msg
         jmp .socket_close
 .send_501:
-        SERVER_SEND r13, HTTP501
+        SERVER_SEND r13d, HTTP501
         SYSCALL_ERROR_MAYBE socket_write_err_msg
         jmp .socket_close
 

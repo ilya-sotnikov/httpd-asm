@@ -8,9 +8,9 @@
 %%msg db %1
 %%msg_len equ $ - %%msg
         __?SECT?__
-        mov rax, SYSCALL_WRITE
-        mov rdi, STDOUT
+        mov eax, SYSCALL_WRITE
+        mov edi, STDOUT
         mov rsi, %%msg
-        mov rdx, %%msg_len
+        mov edx, %%msg_len
         syscall
 %endmacro

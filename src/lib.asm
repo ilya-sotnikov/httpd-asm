@@ -12,49 +12,74 @@ strlen:
         repne scasb
         not rcx
         mov rax, rcx
-        dec rax
+        sub rax, 1
         ret
 
-; arg1 const char *s
-; arg2 size_t len
-; arg3 char c
-; ret  int char_pos (-1 if not found or string empty)
-global str_find_char
-str_find_char:
-        test rsi, rsi
-        jz .char_not_found
-
+; arg1 const uint8_t *m
+; arg2 int32_t size
+; arg3 uint8_t byte
+; ret  int32_t byte_pos (-1 if not found or size == 0)
+global mem_find_byte
+mem_find_byte:
+        test esi, esi
+        jz .byte_not_found
         xor ecx, ecx
 .loop:
         cmp byte [rdi + rcx], dl
-        je .char_found
-        inc ecx
-        dec rsi
+        je .byte_found
+        add ecx, 1
+        sub esi, 1
         jnz .loop
-.char_not_found:
-        mov rax, -1
+.byte_not_found:
+        mov eax, -1
         ret
-.char_found:
-        mov rax, rcx
+.byte_found:
+        mov eax, ecx
         ret
 
-; arg1 const char *s1
-; arg2 const char *s2
-; arg3 size_t n
-; ret  1 if s1 == s2, 0 if (s1 != s2) or (n == 0)
-global str_is_equal
-str_is_equal:
-        cmp rdx, 0
+; arg1 const uint8_t *m
+; arg2 int32_t size
+; arg2 uint8_t byte1
+; arg3 uint8_t byte2
+; ret  int32_t byte_pos (-1 if not found or size == 0)
+global mem_find_byte_or
+mem_find_byte_or:
+        test esi, esi
+        jz .byte_not_found
+        xor r8d, r8d
+.loop:
+        mov r9b, byte [rdi + r8]
+        cmp r9b, dl
+        je .byte_found
+        cmp r9b, cl
+        je .byte_found
+        add r8d, 1
+        sub esi, 1
+        jnz .loop
+.byte_not_found:
+        mov eax, -1
+        ret
+.byte_found:
+        mov eax, r8d
+        ret
+
+; arg1 const uint8_t *m1
+; arg2 const uint8_t *m2
+; arg3 uint32_t n
+; ret  1 if m1 == m2, 0 if (m1 != m2) or (n == 0)
+global mem_is_equal
+mem_is_equal:
+        test edx, edx
         jz .not_equal
         xor ecx, ecx
 .loop:
-        mov r8, [rsi + rcx]
+        mov r8b, byte [rsi + rcx]
         cmp byte [rdi + rcx], r8b
         jne .not_equal
-        dec rdx
+        sub edx, 1
         jnz .loop
 .equal:
-        mov rax, 1
+        mov eax, 1
         ret
 .not_equal:
         xor eax, eax
@@ -62,51 +87,49 @@ str_is_equal:
 
 ; arg1 void *dst
 ; arg2 const void *src
-; arg3 size_t n
-; ret  size_t n
+; arg3 uint32_t n
+; ret  uint32_t n
 global mem_copy
 mem_copy:
         xor ecx, ecx
-        mov rax, rdx
+        mov eax, edx
 .loop:
-        mov r8, [rsi + rcx]
-        mov [rdi + rcx], r8
-        inc rcx
-        dec rdx
+        mov r8b, byte [rsi + rcx]
+        mov byte [rdi + rcx], r8b
+        add ecx, 1
+        sub edx, 1
         jnz .loop
         ret
 
 ; arg1 const char *str
-; arg2 size_t str_len
-; ret1 uint64_t num
+; arg2 uint32_t str_len
+; ret1 uint32_t num
 ; ret2 bool success
-global str_to_unsigned
-str_to_unsigned:
+global str_to_u32
+str_to_u32:
         xor eax, eax
         xor edx, edx
-        xor r8, r8
-        mov rcx, 1
-        mov r9, 10
+        xor r8d, r8d
+        mov ecx, 1
+        mov r9d, 10
 .loop:
-        mov r8b, byte [rdi]
+        movzx r8d, byte [rdi]
 
-        cmp r8, "0"
+        sub r8d, "0"
         jl .fail
-        cmp r8, "9"
+        cmp r8d, 9
         jg .fail
 
-        sub r8, "0"
-
         mul r9d
-        add rax, r8
+        add eax, r8d
 
-        inc rcx
-        inc rdi
-        dec rsi
+        add ecx, 1
+        add rdi, 1
+        sub esi, 1
         jnz .loop
 
 .success:
-        mov rdx, 1
+        mov edx, 1
         ret
 .fail:
         xor edx, edx
@@ -116,6 +139,6 @@ str_to_unsigned:
 ; ret  uint16_t network_short
 global htons
 htons:
-        mov rax, rdi
+        movzx eax, di
         ror ax, 8
         ret

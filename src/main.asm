@@ -4,14 +4,14 @@
         section .text
         extern server_start
         extern server_loop
-        extern str_to_unsigned
+        extern str_to_u32
         extern strlen
 
 print_usage_die:
         PRINT `usage: httpd-asm [PORT]\n`
 
-        mov rax, SYSCALL_EXIT
-        mov rdi, 1
+        mov eax, SYSCALL_EXIT
+        mov edi, 1
         syscall
 
 global _start
@@ -24,14 +24,14 @@ _start:
         push rdi
         call strlen
         pop rdi
-        mov rsi, rax
-        call str_to_unsigned
-        mov rdi, rax
+        mov esi, eax
+        call str_to_u32
+        mov edi, eax
         call server_start
-        mov rdi, rax
+        mov edi, eax
         call server_loop
 
-        mov rax, SYSCALL_EXIT
+        mov eax, SYSCALL_EXIT
         xor edi, edi
         syscall
         ret
