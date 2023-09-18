@@ -210,6 +210,6 @@ server_loop:
 
 DEFINE_STRING index_path, "index.html"
 
-DEFINE_STRING HTTP200, `HTTP/1.1 200 0K\r\n\r\n`
-DEFINE_STRING HTTP404, `HTTP/1.1 404 Not Found\r\n\r\n`
-DEFINE_STRING HTTP501, `HTTP/1.1 501 Not Implemented\r\n\r\n`
+DEFINE_STRING HTTP200, `HTTP/1.0 200 0K\r\n\r\n`
+DEFINE_STRING HTTP404, `HTTP/1.0 404 Not Found\r\n\r\n`
+DEFINE_STRING HTTP501, `HTTP/1.0 501 Not Implemented\r\n\r\n`
