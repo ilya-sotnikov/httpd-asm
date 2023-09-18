@@ -1,6 +1,23 @@
 %include "constants.asm"
+%include "config.asm"
+%include "macro.asm"
 
         section .text
+
+; arg1 int error_code
+; arg2 const char *msg
+; arg3 size_t msg_len
+global exit_error_msg
+exit_error_msg:
+        mov r10d, edi ; error code
+
+        mov eax, SYSCALL_WRITE
+        mov edi, STDERR
+        syscall
+
+        mov eax, SYSCALL_EXIT_GROUP
+        mov edi, r10d
+        syscall
 
 ; arg1 const char *s
 ; ret  size_t n
@@ -141,4 +158,42 @@ global htons
 htons:
         movzx eax, di
         ror ax, 8
+        ret
+
+; ret void *stack_top_ptr
+thread_stack_alloc:
+        mov eax, SYSCALL_MMAP
+        xor edi, edi
+        mov rsi, THREAD_STACK_SIZE
+        mov rdx, PROT_WRITE | PROT_READ
+        mov r10, MAP_ANONYMOUS | MAP_PRIVATE
+        mov r8, -1
+        xor r9d, r9d
+        syscall
+        SYSCALL_CHECK_ERROR_DIE `mmap failed\n`
+        add rax, THREAD_STACK_SIZE
+        ret
+
+; arg1 void (*thread_fn)(uint64_t)
+; arg2 uint64_t thread_fn_arg
+; ret int thread_id
+global thread_create
+thread_create:
+        push rsi
+        push rdi
+        call thread_stack_alloc
+        mov rsi, rax
+        pop qword [rsi - 8]      ; thread_fn
+        pop qword [rsi - 16]     ; arg
+        mov eax, SYSCALL_CLONE
+        mov rdi, CLONE_VM | CLONE_FS      | CLONE_FILES  | \
+                 CLONE_IO | CLONE_SIGHAND | CLONE_THREAD
+        syscall
+        SYSCALL_CHECK_ERROR_DIE `clone failed\n`
+        test eax, eax
+        jz .new_thread
+        ret
+.new_thread:
+        push qword [rsp - 8]
+        mov rdi, qword [rsp - 8]     ; arg
         ret

@@ -2,23 +2,12 @@
 %include "macro.asm"
 %include "config.asm"
 
+        extern exit_error_msg
         extern htons
         extern mem_find_byte_or
         extern mem_copy
 
         section .text
-
-%macro SYSCALL_ERROR_MAYBE 1
-        test eax, eax
-        jge %%ok
-
-        mov edi, eax
-        neg edi            ; 0 - errno in rax after syscall
-        mov rsi, %1
-        mov edx, %1_len
-        jmp exit_error_msg
-%%ok:
-%endmacro
 
 %macro SERVER_SEND 2
         mov eax, SYSCALL_WRITE
@@ -27,20 +16,6 @@
         mov edx, %2_len
         syscall
 %endmacro
-
-; arg1 int error_code
-; arg2 const char *msg
-; arg3 size_t msg_len
-exit_error_msg:
-        mov r10d, edi ; error code
-
-        mov eax, SYSCALL_WRITE
-        mov edi, STDERR
-        syscall
-
-        mov eax, SYSCALL_EXIT
-        mov edi, r10d
-        syscall
 
 ; arg1 uint8_t *request (len >= 4096+5 for max file_path len for Linux)
 ; ret  uint32_t file_path_start_pos
@@ -91,7 +66,7 @@ server_start:
         xor edx, edx
         syscall
 
-        SYSCALL_ERROR_MAYBE socket_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket create failed\n`
 
         mov r12d, eax
 
@@ -107,7 +82,7 @@ server_start:
         mov r8d, 4
         syscall
 
-        SYSCALL_ERROR_MAYBE setsockopt_err_msg
+        SYSCALL_CHECK_ERROR_DIE `setsockopt failed\n`
 
         mov qword [rsp], 0
         mov qword [rsp+8], 0
@@ -122,14 +97,14 @@ server_start:
         mov edx, 16
         syscall
 
-        SYSCALL_ERROR_MAYBE bind_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket bind failed\n`
 
         mov eax, SYSCALL_LISTEN
         mov edi, r12d
         mov esi, LISTEN_BACKLOG  ; queued connections
         syscall
 
-        SYSCALL_ERROR_MAYBE listen_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket listen failed`
 
         mov eax, r12d            ; server fd
 
@@ -154,7 +129,7 @@ server_loop:
         xor edx, edx
         syscall
 
-        SYSCALL_ERROR_MAYBE accept_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket accept failed\n`
 
         mov r13d, eax
 
@@ -164,7 +139,7 @@ server_loop:
         mov edx, MAX_REQUEST_LEN
         syscall
 
-        SYSCALL_ERROR_MAYBE socket_read_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket read failed\n`
 
         mov r15d, eax
         cmp r15d, 5
@@ -204,14 +179,14 @@ server_loop:
         mov edi, r14d
         syscall
 
-        SYSCALL_ERROR_MAYBE file_close_err_msg
+        SYSCALL_CHECK_ERROR_DIE `file close failed\n`
 
 .socket_close:
         mov eax, SYSCALL_CLOSE
         mov edi, r13d
         syscall
 
-        SYSCALL_ERROR_MAYBE socket_close_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket close failed\n`
 
         jmp .loop
 
@@ -224,25 +199,14 @@ server_loop:
 
 .send_404:
         SERVER_SEND r13d, HTTP404
-        SYSCALL_ERROR_MAYBE socket_write_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket write failed\n`
         jmp .socket_close
 .send_501:
         SERVER_SEND r13d, HTTP501
-        SYSCALL_ERROR_MAYBE socket_write_err_msg
+        SYSCALL_CHECK_ERROR_DIE `socket write failed\n`
         jmp .socket_close
 
         section .data
-
-DEFINE_STRING socket_err_msg, `socket create failed\n`
-DEFINE_STRING setsockopt_err_msg, `setsockopt failed\n`
-DEFINE_STRING bind_err_msg, `socket bind failed\n`
-DEFINE_STRING listen_err_msg, `socket listen failed`
-DEFINE_STRING accept_err_msg, `socket accept failed\n`
-DEFINE_STRING file_open_err_msg, `file open failed\n`
-DEFINE_STRING file_close_err_msg, `file close failed\n`
-DEFINE_STRING socket_close_err_msg, `socket close failed\n`
-DEFINE_STRING socket_read_err_msg, `socket read failed\n`
-DEFINE_STRING socket_write_err_msg, `socket write failed\n`
 
 DEFINE_STRING index_path, "index.html"
 
