@@ -10,42 +10,61 @@
         extern thread_create
 
 print_usage_die:
-        PRINT `usage: httpd-asm [PORT]\n`
+        PRINT `usage: httpd-asm [THREADS_CNT >= 1] [PORT]\n`
 
         mov eax, SYSCALL_EXIT
         mov edi, 1
         syscall
 
-global _start
-_start:
-        cmp qword [rsp], 2
-        jne print_usage_die
-
-        mov r8, qword [rsp + 16]      ; port
-
-        push r12
-        push r13
-
-        mov rdi, r8
+; arg1 const char* arg_null_terminated
+; ret  uint32_t arg
+; ret  bool success
+arg_to_u32:
         push rdi
         call strlen
         pop rdi
         mov esi, eax
         call str_to_u32
+        ret
+
+global _start
+_start:
+        cmp qword [rsp], 3
+        jne print_usage_die
+
+        push r12
+        push r13
+
+        mov r12, qword [rsp + 16 + 16]   ; threads_cnt
+        mov r13, qword [rsp + 16 + 24]   ; port
+
+        mov rdi, r13
+        call arg_to_u32
+        test edx, edx
+        jz print_usage_die
         mov edi, eax
         call server_start
+        mov r13, rax                     ; server_fd
 
-        mov r12, rax
-        lea r13d, [THREAD_COUNT - 1]
+        mov rdi, r12
+        call arg_to_u32
+        test edx, edx
+        jz print_usage_die
+
+        mov r12d, eax
+        cmp r12d, 1
+        je .main_thread
+        jl print_usage_die
+        sub r12d, 1
 
 .thread_create_loop:
         mov rdi, server_loop
-        mov rsi, r12
+        mov rsi, r13
         call thread_create
-        sub r13d, 1
+        sub r12d, 1
         jnz .thread_create_loop
-
-        mov rdi, r12
+.main_thread:
+        mov rdi, r13
         call server_loop
 
         pop r13
