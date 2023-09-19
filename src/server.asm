@@ -6,6 +6,7 @@
         extern htons
         extern mem_find_byte_or
         extern mem_copy
+        extern mem_set
 
         section .text
 
@@ -16,6 +17,23 @@
         mov edx, %2_len
         syscall
 %endmacro
+
+setup_sigaction:
+        sub rsp, 36
+        mov rdi, rsp
+        mov esi, 36
+        mov edx, 0
+        call mem_set
+
+        mov eax, SYSCALL_RT_SIGACTION
+        mov rdi, SIGPIPE
+        mov qword [rsp], SIG_IGN
+        mov rsi, rsp
+        mov r10d, 8                  ; sizeof(sigset_t)
+        syscall
+        SYSCALL_CHECK_ERROR_DIE `sigaction failed\n`
+        add rsp, 36
+        ret
 
 ; arg1 uint8_t *request (len >= 4096+5 for max file_path len for Linux)
 ; ret  uint32_t file_path_start_pos
@@ -106,6 +124,8 @@ server_start:
 
         SYSCALL_CHECK_ERROR_DIE `socket listen failed`
 
+        call setup_sigaction
+
         mov eax, r12d            ; server fd
 
         add rsp, 16
@@ -173,8 +193,9 @@ server_loop:
         mov eax, SYSCALL_SENDFILE
         syscall
         test eax, eax
+        jl .file_close
         jnz .send_file_loop
-
+.file_close:
         mov eax, SYSCALL_CLOSE
         mov edi, r14d
         syscall

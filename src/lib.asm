@@ -84,8 +84,8 @@ mem_find_byte_or:
 ; arg2 const uint8_t *m2
 ; arg3 uint32_t n
 ; ret  1 if m1 == m2, 0 if (m1 != m2) or (n == 0)
-global mem_is_equal
-mem_is_equal:
+global mem_cmp
+mem_cmp:
         test edx, edx
         jz .not_equal
         xor ecx, ecx
@@ -116,6 +116,22 @@ mem_copy:
         add ecx, 1
         sub edx, 1
         jnz .loop
+        mov eax, ecx
+        ret
+
+; arg1 void *m
+; arg2 uint32_t size
+; arg3 uint8_t b
+global mem_set
+mem_set:
+        mov r8, rdi
+.loop:
+        mov byte [rdi], dl
+        add rdi, 1
+        sub esi, 1
+        jnz .loop
+        sub rdi, r8
+        mov rax, rdi
         ret
 
 ; arg1 const char *str

@@ -20,7 +20,7 @@
         mov rdi, %1
         mov rsi, %2
         mov edx, %2_len
-        call mem_is_equal
+        call mem_cmp
         cmp rax, 1
         je %%ok
 
@@ -45,8 +45,9 @@
         extern mem_find_byte
         extern mem_find_byte_or
         extern htons
-        extern mem_is_equal
+        extern mem_cmp
         extern mem_copy
+        extern mem_set
         extern str_to_u32
         extern strlen
 
@@ -107,17 +108,17 @@ _start:
         mov rdi, test_str
         mov rsi, short_str
         mov edx, short_str_len
-        CALL_DO mem_is_equal, {ASSERT_EQUAL eax, 1}
+        CALL_DO mem_cmp, {ASSERT_EQUAL eax, 1}
 
         mov rdi, test_str
         mov rsi, long_str
         mov edx, test_str_len
-        CALL_DO mem_is_equal, {ASSERT_EQUAL eax, 0}
+        CALL_DO mem_cmp, {ASSERT_EQUAL eax, 0}
 
         mov rdi, test_str
         mov rsi, empty_str
         mov edx, empty_str_len
-        CALL_DO mem_is_equal, {ASSERT_EQUAL eax, 0}
+        CALL_DO mem_cmp, {ASSERT_EQUAL eax, 0}
 
         sub rsp, 1024*16 + 1
 
@@ -131,6 +132,17 @@ _start:
         mov rsi, long_str
         mov edx, long_str_len
         CALL_DO mem_copy, {ASSERT_EQUAL eax, long_str_len}
+
+        mov rdi, rsp
+        mov esi, long_str_len
+        xor edx, edx
+        CALL_DO mem_set, {ASSERT_EQUAL eax, long_str_len}
+        mov r8, rsp
+        mov r9, long_str_len
+.loop:
+        sub r9, 1
+        ASSERT_EQUAL byte [rsp + r9], 0
+        jnz .loop
 
         add rsp, 1024*16 + 1
 
