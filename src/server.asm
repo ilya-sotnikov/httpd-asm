@@ -5,7 +5,6 @@
         extern exit_error_msg
         extern htons
         extern mem_find_byte_or
-        extern mem_copy
         extern mem_set
 
         section .text
@@ -58,14 +57,15 @@ request_file_get:
         test eax, eax
         jg .null_terminate
 .file_empty:
-        mov rdi, r12
-        mov rsi, index_path
-        mov edx, index_path_len
-        call mem_copy
+        mov r8, "index.ht"
+        mov r9d, `ml\x00\x00`
+        mov qword [r12], r8
+        mov dword [r12 + 8], r9d
+        jmp .end
 .null_terminate:
         mov byte [r12 + rax], 0  ; null-termination
-        mov eax, 5               ; start_pos
 .end:
+        mov eax, 5               ; start_pos
         pop r12
         ret
 
@@ -228,8 +228,6 @@ server_loop:
         jmp .socket_close
 
         section .data
-
-DEFINE_STRING index_path, "index.html"
 
 DEFINE_STRING HTTP200, `HTTP/1.0 200 0K\r\n\r\n`
 DEFINE_STRING HTTP404, `HTTP/1.0 404 Not Found\r\n\r\n`

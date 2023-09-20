@@ -145,9 +145,8 @@ str_to_u32:
         xor r8d, r8d
         mov ecx, 1
         mov r9d, 10
-.loop:
         movzx r8d, byte [rdi]
-
+.loop:
         sub r8d, "0"
         jl .fail
         cmp r8d, 9
@@ -158,9 +157,9 @@ str_to_u32:
 
         add ecx, 1
         add rdi, 1
-        sub esi, 1
+        movzx r8d, byte [rdi]
+        test r8d, r8d
         jnz .loop
-
 .success:
         mov edx, 1
         ret

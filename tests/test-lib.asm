@@ -152,16 +152,13 @@ _start:
         CALL_DO htons, {ASSERT_EQUAL ax, 0x0000}
 
         mov rdi, num_str
-        mov esi, num_str_len
         CALL_DO str_to_u32, {ASSERT_EQUAL edx, 1}
         ASSERT_EQUAL eax, 1337
 
-        mov rdi, test_str
-        mov esi, test_str_len
+        mov rdi, letters_str
         CALL_DO str_to_u32, {ASSERT_EQUAL edx, 0}
 
-        mov rdi, empty_str
-        mov esi, empty_str_len
+        mov rdi, empty_str_null
         CALL_DO str_to_u32, {ASSERT_EQUAL edx, 0}
 
         mov rdi, null_term_str
@@ -185,12 +182,13 @@ DEFINE_STRING test_str, "testing string /index.html?test=5"
 DEFINE_STRING index_str_quest, "index.html?test=5"
 DEFINE_STRING index_str_space, "index.html $(*!@)$7187"
 DEFINE_STRING short_str, "test"
-DEFINE_STRING num_str, "1337"
+DEFINE_STRING_NULL num_str, "1337"
+DEFINE_STRING_NULL letters_str, "abcdefg"
+DEFINE_STRING_NULL empty_str_null, ""
 
 long_str times 1024 * 8 db "x"
 db "?"
 times 1024 * 8 db "x"
 long_str_len equ $ - long_str
 
-null_term_str db "testing strlen", 0
-null_term_str_len equ $ - null_term_str - 1
+DEFINE_STRING_NULL null_term_str, "testing strlen"

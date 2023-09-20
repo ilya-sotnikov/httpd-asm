@@ -3,6 +3,11 @@
 %1_len equ $-%1
 %endmacro
 
+%macro DEFINE_STRING_NULL 2
+%1 db %2, 0
+%1_len equ $-%1-1
+%endmacro
+
 %macro SYSCALL_CHECK_ERROR_DIE 1
         test rax, rax
         jge %%ok

@@ -6,7 +6,6 @@
         extern server_start
         extern server_loop
         extern str_to_u32
-        extern strlen
         extern thread_create
 
 print_usage_die:
@@ -15,17 +14,6 @@ print_usage_die:
         mov eax, SYSCALL_EXIT
         mov edi, 1
         syscall
-
-; arg1 const char* arg_null_terminated
-; ret  uint32_t arg
-; ret  bool success
-arg_to_u32:
-        push rdi
-        call strlen
-        pop rdi
-        mov esi, eax
-        call str_to_u32
-        ret
 
 global _start
 _start:
@@ -39,7 +27,7 @@ _start:
         mov r13, qword [rsp + 16 + 24]   ; port
 
         mov rdi, r13
-        call arg_to_u32
+        call str_to_u32
         test edx, edx
         jz print_usage_die
         mov edi, eax
@@ -47,7 +35,7 @@ _start:
         mov r13, rax                     ; server_fd
 
         mov rdi, r12
-        call arg_to_u32
+        call str_to_u32
         test edx, edx
         jz print_usage_die
 
